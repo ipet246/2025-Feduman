@@ -1,0 +1,383 @@
+import pygame, random, sys, tkinter as tk, time, threading, smtplib
+from email.message import EmailMessage
+from tkinter import filedialog, messagebox, simpledialog
+
+pygame.mixer.init()
+
+def seleccionar_sonidos():
+    messagebox.showinfo("Seleccionar sonidos", "Selecciona los sonidos del juego (puedes omitir cualquiera).")
+    sonidos = {}
+    try:
+        sonidos["musica_fondo"] = filedialog.askopenfilename(title="Selecciona música de fondo (opcional)", filetypes=[("Archivos de sonido", "*.mp3;*.wav")])
+        sonidos["disparo"] = filedialog.askopenfilename(title="Selecciona sonido de disparo (opcional)", filetypes=[("Archivos de sonido", "*.mp3;*.wav")])
+        sonidos["colision"] = filedialog.askopenfilename(title="Selecciona sonido de colisión (opcional)", filetypes=[("Archivos de sonido", "*.mp3;*.wav")])
+        sonidos["victoria"] = filedialog.askopenfilename(title="Selecciona sonido de victoria (opcional)", filetypes=[("Archivos de sonido", "*.mp3;*.wav")])
+        sonidos["derrota"] = filedialog.askopenfilename(title="Selecciona sonido de derrota (opcional)", filetypes=[("Archivos de sonido", "*.mp3;*.wav")])
+    except:
+        sonidos = {}
+
+    cargados = {}
+    for nombre, ruta in sonidos.items():
+        if ruta:
+            try:
+                cargados[nombre] = pygame.mixer.Sound(ruta)
+            except:
+                pass
+    return cargados
+
+
+def mostrar_intro():
+    def iniciar_juego():
+        global sonidos_juego
+        sonidos_juego = seleccionar_sonidos()
+
+        if "musica_fondo" in sonidos_juego:
+            try:
+                pygame.mixer.music.load(sonidos_juego["musica_fondo"])
+                pygame.mixer.music.play(-1)
+            except:
+                pass
+
+        ventana.destroy()
+        iniciar_pygame()
+
+    ventana = tk.Tk()
+    ventana.title("Feduman Bizarre Storm")
+    ventana.geometry("900x550")
+    ventana.config(bg="black")
+
+    marco = tk.Frame(ventana, bg="black")
+    marco.pack(expand=True, fill="both")
+
+    titulo = tk.Label(marco, text="Feduman Bizarre Adventure", font=("Consolas", 28, "bold"), bg="black", fg="red")
+    titulo.pack(pady=50)
+
+    texto = tk.Label(marco, font=("Consolas", 14), bg="black", fg="white", wraplength=800, justify="center")
+    texto.pack(pady=40)
+
+    skip_label = tk.Label(marco, text="(Presiona cualquier tecla para saltar la intro)", font=("Consolas", 10), bg="black", fg="gray")
+    skip_label.pack(side="bottom", pady=10)
+
+    boton = tk.Button(marco, text="INICIAR MISIÓN", font=("Consolas", 16, "bold"), bg="red", fg="black", activebackground="darkred", command=iniciar_juego)
+    boton.place_forget()
+
+    historia = [
+           "En un rincón olvidado de la Argentina, donde las ideas rancias aún se perpetúan,",
+        "la escuela Dr. Amadeo Sabattini se ha convertido en el último refugio de la sabiduría.",
+        "Pero todo cambió el día que el villano más temido del país, conocido solo como 'CFK',",
+        "apareció con su ejército de polenteros, dispuestos a secuestrar a los mejores alumnos de Fedullo.",
+        "Este malévolo enemigo, con poderes polenteros que hacen temblar al más fuerte,",
+        "ha sumido al país en un caos sin igual, desmembrando la estructura social y económica.",
+        "Sin embargo, lo peor no es su poder... sino la ideología que ha difundido: el kirchnerismo.",
+        "Por si fuera poco, ha alineado a los peronistas a su causa, aquellos que, como zombies políticos,",
+        "siguen ciegamente los mismos errores de siempre, como si el tiempo no hubiera pasado...",
+        "Es en este momento que el único hombre capaz de detener este desastre surge desde las sombras: ¡El Profesor Fedullo!",
+        "Armado con sabiduría ancestral, su mente afilada como una espada, y su voluntad inquebrantable.",
+        "Fedullo, con su mate en mano, ha jurado restaurar el equilibrio y sacar a los polenteros del poder de una vez por todas.",
+        "La batalla no será fácil, pues las huestes de CFK se multiplican, y los peronistas son más fuertes que nunca.",
+        "Pero el Profesor Fedullo no está solo en esta cruzada. El futuro de sus alumnos, de la educación y de la Argentina,",
+        "depende de su victoria. ¡Es hora de que el Profesor Fedullo se eleve por encima de la adversidad!",
+        "¡Es hora de que Fedullo, con su sabiduría y valentía, derrumbe los muros del kirchnerismo y el peronismo!",
+        "¡Es hora de que él se convierta en el único héroe capaz de restaurar el orden y salvar a la patria!",
+        "¡Bienvenidos a la mayor aventura de todos los tiempos: Fedullo Bizarre Storm!"
+    ]
+
+    skip_intro = tk.BooleanVar(value=False)
+    ventana.bind("<Key>", lambda e: skip_intro.set(True))
+
+    def escribir(texto_mostrar, delay=0.04):
+        texto.config(text="")
+        for c in texto_mostrar:
+            if skip_intro.get():
+                break
+            texto.config(text=texto.cget("text") + c)
+            texto.update()
+            time.sleep(delay)
+
+    def reproducir_intro():
+        for linea in historia:
+            if skip_intro.get():
+                break
+            escribir(linea)
+            time.sleep(1)
+        boton.place(relx=0.5, rely=0.85, anchor="center")
+
+    threading.Thread(target=reproducir_intro, daemon=True).start()
+    ventana.mainloop()
+
+
+def iniciar_pygame():
+    pygame.init()
+    ANCHO, ALTO = 800, 600
+    V = pygame.display.set_mode((ANCHO, ALTO))
+    pygame.display.set_caption("Feduman Bizarre Storm")
+    clock = pygame.time.Clock()
+
+    root = tk.Tk(); root.withdraw()
+    usar_custom = messagebox.askyesno("Imágenes del juego", "¿Deseas seleccionar imágenes personalizadas?")
+    root.destroy()
+
+    def img_sel(titulo, tam, color):
+        if usar_custom:
+            archivo = filedialog.askopenfilename(title=titulo, filetypes=[("Imágenes", "*.png;*.jpg;*.jpeg")])
+            if archivo:
+                try:
+                    return pygame.transform.scale(pygame.image.load(archivo), tam)
+                except:
+                    pass
+        surf = pygame.Surface(tam)
+        surf.fill(pygame.Color(color))
+        return surf
+
+    fondo = img_sel("Imagen de fondo", (ANCHO, ALTO), "black")
+    jugador = img_sel("Imagen del jugador", (50, 50), "white")
+    enemigo = img_sel("Imagen del enemigo", (50, 50), "red")
+    jefe_img = img_sel("Imagen del jefe final", (150, 150), "darkred")
+    bala_img = img_sel("Imagen del disparo", (10, 20), "yellow")
+
+    jugador_rect = jugador.get_rect(center=(ANCHO // 2, ALTO - 80))
+
+    def cargar_score():
+        try:
+            return int(open("score.txt").read().strip())
+        except:
+            return 0
+
+    def guardar_score(p):
+        if p > cargar_score():
+            open("score.txt", "w").write(str(p))
+
+    mejor, puntaje = cargar_score(), 0
+    obstaculos, balas = [], []
+    vel_jugador, vel_obs, vel_bala = 10, 10, 15
+    modo_disparo = False
+    vidas = 3
+    balas_restantes = 5
+    recargando = False
+    tiempo_recarga = 0
+    jefe_final = None
+    jefe_vida = 30
+    jefe_velocidad_y = 0.1
+
+    def texto(txt, y, tam=36, color="white"):
+        fuente = pygame.font.Font(None, tam)
+        surf = fuente.render(txt, True, pygame.Color(color))
+        V.blit(surf, surf.get_rect(center=(ANCHO // 2, y)))
+
+    def crear_obs():
+        return pygame.Rect(random.randint(0, ANCHO - 50), -50, 50, 50)
+
+    def dibujar_barra_jefe():
+        if jefe_final:
+            ancho_total = 300
+            alto = 20
+            porcentaje = jefe_vida / 15
+            pygame.draw.rect(V, (100, 100, 100), (ANCHO//2 - ancho_total//2, 20, ancho_total, alto))
+            pygame.draw.rect(V, (255, 0, 0), (ANCHO//2 - ancho_total//2, 20, int(ancho_total * porcentaje), alto))
+
+    def pantalla_inicio():
+        V.fill(pygame.Color("black"))
+        texto("Feduman Bizarre Storm", ALTO // 3, 60, "red")
+        texto("Presiona cualquier tecla para comenzar", ALTO // 2)
+        texto(f"Mejor puntuación: {mejor}", ALTO // 2 + 50)
+        pygame.display.flip()
+
+        while True:
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    pygame.quit(); sys.exit()
+                if e.type == pygame.KEYDOWN:
+                    return
+
+    def iniciar_recarga():
+        nonlocal recargando, tiempo_recarga
+        recargando = True
+        tiempo_recarga = pygame.time.get_ticks()
+
+    def terminar_partida(mensaje, puntaje):
+        texto(mensaje, ALTO // 2, 50, "green" if mensaje == "¡HAS GANADO!" else "red")
+        pygame.display.flip()
+        pygame.time.wait(2000)
+
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showinfo("Fin de la partida", f"Tu puntuación final fue: {puntaje}")
+
+        desea = messagebox.askyesno("Notificación", "¿Deseas recibir un correo con tu puntuación?")
+        if desea:
+            email = simpledialog.askstring("Correo electrónico", "Ingresa tu correo:")
+            if email and "@" in email:
+                threading.Thread(target=enviar_notificacion, args=(email, puntaje), daemon=True).start()
+
+        root.destroy()
+
+    def juego():
+        nonlocal puntaje, mejor, modo_disparo, vidas, balas_restantes, recargando
+        nonlocal tiempo_recarga, jefe_final, jefe_vida
+
+        obstaculos.clear()
+        balas.clear()
+        puntaje = 0
+        vidas = 3
+        modo_disparo = False
+        jefe_final, jefe_vida = None, 15
+
+        while True:
+            clock.tick(60)
+            tiempo_actual = pygame.time.get_ticks()
+
+            if recargando and tiempo_actual - tiempo_recarga >= 1000:
+                recargando = False
+                balas_restantes = 5
+
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    guardar_score(mejor)
+                    pygame.quit(); sys.exit()
+
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                    if modo_disparo and not recargando:
+                        if balas_restantes > 0:
+                            bala = pygame.Rect(jugador_rect.centerx-5, jugador_rect.top, 10, 20)
+                            balas.append(bala)
+                            balas_restantes -= 1
+                            if "disparo" in sonidos_juego:
+                                sonidos_juego["disparo"].play()
+                        else:
+                            iniciar_recarga()
+
+            teclas = pygame.key.get_pressed()
+            if teclas[pygame.K_LEFT]:
+                jugador_rect.x = max(0, jugador_rect.x - vel_jugador)
+            if teclas[pygame.K_RIGHT]:
+                jugador_rect.x = min(ANCHO - jugador_rect.w, jugador_rect.x + vel_jugador)
+
+            if random.randint(1, 100) < 3 and not jefe_final:
+                obstaculos.append(crear_obs())
+
+            for o in obstaculos[:]:
+                o.y += vel_obs
+                if o.y > ALTO:
+                    obstaculos.remove(o)
+                    puntaje += 1
+                    if puntaje > mejor:
+                        mejor = puntaje
+                        guardar_score(mejor)
+                    if puntaje >= 20:
+                        modo_disparo = True
+
+            if puntaje >= 26 and jefe_final is None:
+                jefe_final = jefe_img.get_rect(center=(ANCHO//2, 100))
+                obstaculos.clear()
+                texto("¡El jefe final ha aparecido!", ALTO//2, 40, "red")
+                pygame.display.flip()
+                pygame.time.wait(2000)
+
+            if jefe_final:
+                jefe_final.x += random.choice([-7, 7])
+                jefe_final.x = max(0, min(jefe_final.x, ANCHO - jefe_final.w))
+                jefe_final.y += jefe_velocidad_y
+                if jefe_final.bottom >= ALTO:
+                    if "derrota" in sonidos_juego:
+                        sonidos_juego["derrota"].play()
+                    terminar_partida("¡HAS PERDIDO!", puntaje)
+                    return
+
+                if random.randint(1, 50) == 1:
+                    obstaculos.append(crear_obs())
+
+            for bala in balas[:]:
+                bala.y -= vel_bala
+                if bala.y < 0:
+                    balas.remove(bala)
+                else:
+                    if jefe_final and bala.colliderect(jefe_final):
+                        jefe_vida -= 1
+                        balas.remove(bala)
+                        if jefe_vida <= 0:
+                            if "victoria" in sonidos_juego:
+                                sonidos_juego["victoria"].play()
+                            terminar_partida("¡HAS GANADO!", puntaje)
+                            return
+
+                    for o in obstaculos[:]:
+                        if bala.colliderect(o):
+                            obstaculos.remove(o)
+                            puntaje += 2
+                            if bala in balas:
+                                balas.remove(bala)
+
+            for o in obstaculos[:]:
+                if o.colliderect(jugador_rect):
+                    obstaculos.remove(o)
+                    vidas -= 1
+                    if "colision" in sonidos_juego:
+                        sonidos_juego["colision"].play()
+                    if vidas <= 0:
+                        if "derrota" in sonidos_juego:
+                            sonidos_juego["derrota"].play()
+                        terminar_partida("¡HAS PERDIDO!", puntaje)
+                        return
+
+            if jefe_final and jugador_rect.colliderect(jefe_final):
+                if "derrota" in sonidos_juego:
+                    sonidos_juego["derrota"].play()
+                terminar_partida("¡HAS PERDIDO!", puntaje)
+                return
+
+            V.blit(fondo, (0, 0))
+            V.blit(jugador, jugador_rect)
+
+            for o in obstaculos:
+                V.blit(enemigo, o.topleft)
+
+            for bala in balas:
+                V.blit(bala_img, bala.topleft)
+
+            if jefe_final:
+                V.blit(jefe_img, jefe_final)
+                dibujar_barra_jefe()
+
+            texto(f"Puntos: {puntaje}", 30, 28)
+            texto(f"Vidas: {vidas}", 60, 28, "orange")
+            texto(f"Balas: {balas_restantes}", 90, 28, "yellow")
+
+            if recargando:
+                texto("Recargando...", 120, 28, "red")
+            elif modo_disparo:
+                texto("Modo disparo habilitado", 120, 28, "yellow")
+
+            pygame.display.flip()
+
+    while True:
+        pantalla_inicio()
+        juego()
+
+
+def enviar_notificacion(email_destino, puntaje_final):
+    remitente = "lunajeremias6896@gmail.com"
+    contraseña = "oocx rfzy vguf ltjz"
+    try:
+        email = EmailMessage()
+        email["From"] = remitente
+        email["To"] = email_destino
+        email["Subject"] = "Tu puntaje final en Feduman Bizarre Storm"
+        email.set_content(f"Tu puntaje final fue: {puntaje_final}")
+
+        smtp = smtplib.SMTP_SSL("smtp.gmail.com")
+        smtp.login(remitente, contraseña)
+        smtp.send_message(email)
+        smtp.quit()
+
+        return True
+
+    except:
+        return False
+
+
+
+if __name__ == "__main__":
+    mostrar_intro()
+
+
+
